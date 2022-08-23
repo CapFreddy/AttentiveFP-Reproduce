@@ -9,7 +9,11 @@ import rdkit
 from rdkit import Chem
 from rdkit.Chem import AllChem
 import os
-from AttentiveFP.Featurizer import *
+# from AttentiveFP.Featurizer import *
+from AttentiveFP.pretrain_gnns_featurizer import PretrainGNNsAtomFeaturizer, PretrainGNNsBondFeaturizer
+atom_features = PretrainGNNsAtomFeaturizer()
+bond_features = PretrainGNNsBondFeaturizer()
+from tqdm import tqdm
 import pickle
 import time
 from rdkit.Chem import rdDepictor
@@ -21,7 +25,7 @@ from rdkit.Chem.Draw import SimilarityMaps
 from io import StringIO
 
 smilesList = ['CC']
-degrees = [0, 1, 2, 3, 4, 5]
+degrees = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
 
 class MolGraph(object):
@@ -53,6 +57,9 @@ class MolGraph(object):
         self.nodes[ntype] = new_nodes
 
     def feature_array(self, ntype):
+        if (ntype == 'bond') and (ntype not in self.nodes):
+            return np.empty((0, num_bond_features()), dtype=int)
+
         assert ntype in self.nodes
         return np.array([node.features for node in self.nodes[ntype]])
 
@@ -60,6 +67,9 @@ class MolGraph(object):
         return np.array([node.rdkit_ix for node in self.nodes['atom']])
 
     def neighbor_list(self, self_ntype, neighbor_ntype):
+        if (neighbor_ntype == 'bond') and (neighbor_ntype not in self.nodes):
+            return []
+
         assert self_ntype in self.nodes and neighbor_ntype in self.nodes
         neighbor_idxs = {n : i for i, n in enumerate(self.nodes[neighbor_ntype])}
         return [[neighbor_idxs[neighbor]
@@ -132,7 +142,7 @@ def graph_from_smiles(smiles):
 def array_rep_from_smiles(molgraph):
     """Precompute everything we need from MolGraph so that we can free the memory asap."""
     #molgraph = graph_from_smiles_tuple(tuple(smiles))
-    degrees = [0,1,2,3,4,5]
+    degrees = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     arrayrep = {'atom_features' : molgraph.feature_array('atom'),
                 'bond_features' : molgraph.feature_array('bond'),
                 'atom_list'     : molgraph.neighbor_list('molecule', 'atom'),
@@ -164,21 +174,18 @@ def gen_descriptor_data(smilesList):
 
     smiles_to_fingerprint_array = {}
 
-    for i,smiles in enumerate(smilesList):
+    for i,smiles in enumerate(tqdm(smilesList)):
 #         if i > 5:
 #             print("Due to the limited computational resource, submission with more than 5 molecules will not be processed")
 #             break
         smiles = Chem.MolToSmiles(Chem.MolFromSmiles(smiles), isomericSmiles=True)
-        try:
-            molgraph = graph_from_smiles(smiles)
-            molgraph.sort_nodes_by_degree('atom')
-            arrayrep = array_rep_from_smiles(molgraph)
 
-            smiles_to_fingerprint_array[smiles] = arrayrep
+        molgraph = graph_from_smiles(smiles)
+        molgraph.sort_nodes_by_degree('atom')
+        arrayrep = array_rep_from_smiles(molgraph)
+
+        smiles_to_fingerprint_array[smiles] = arrayrep
             
-        except:
-            print(smiles)
-            time.sleep(3)
     return smiles_to_fingerprint_array
 
 
@@ -223,7 +230,7 @@ def get_smiles_dicts(smilesList):
 
     smiles_to_atom_mask = {}
 
-    degrees = [0,1,2,3,4,5]
+    degrees = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     #then run through our numpy array again
     for smiles,arrayrep in smiles_to_fingerprint_features.items():
         mask = np.zeros((max_atom_len))
@@ -334,7 +341,7 @@ def save_smiles_dicts(smilesList,filename):
 
     smiles_to_atom_mask = {}
 
-    degrees = [0,1,2,3,4,5]
+    degrees = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     #then run through our numpy array again
     for smiles,arrayrep in smiles_to_fingerprint_features.items():
         mask = np.zeros((max_atom_len))
