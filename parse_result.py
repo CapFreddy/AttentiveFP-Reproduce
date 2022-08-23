@@ -10,7 +10,6 @@ row = ['AttentiveFP']
 
 for dataset in columns[1:]:
     results = []
-
     for result_path in Path(f'./saved_models/{dataset}').rglob('*.txt'):
         with open(result_path, 'r') as fin:
             results.append(float(fin.readline()) * 100)
